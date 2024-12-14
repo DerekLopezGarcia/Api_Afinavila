@@ -1,6 +1,6 @@
 package com.afinavila
 
-import com.afinavila.model.cominidad.Comunidad
+import es.model.comunidad.Comunidad
 import com.afinavila.model.cominidad.ComunidadJson
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*

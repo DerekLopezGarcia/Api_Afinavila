@@ -1,5 +1,6 @@
 package es
 
+import com.afinavila.configureRouting
 import io.ktor.server.application.*
 
 fun main(args: Array<String>) {

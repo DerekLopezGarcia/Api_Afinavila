@@ -1,5 +1,7 @@
 package com.afinavila.model.cominidad
 
+import es.model.comunidad.Comunidad
+
 object ComunidadJson {
     private val mockjson = """
         [

@@ -1,4 +1,4 @@
-package com.afinavila.model.cominidad
+package es.model.comunidad
 
 import kotlinx.serialization.Serializable
 
