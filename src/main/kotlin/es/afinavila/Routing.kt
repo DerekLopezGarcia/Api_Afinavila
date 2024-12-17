@@ -13,6 +13,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.cio.writeChannel
 import io.ktor.utils.io.copyAndClose
+import io.ktor.utils.io.copyTo
+import io.ktor.utils.io.jvm.javaio.copyTo
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 import java.io.File
@@ -73,17 +75,19 @@ fun Application.configureRouting() {
                     multipart.forEachPart { part ->
                         when (part) {
                             is PartData.FileItem -> {
-                                val channel = part.provider()
-                                channel.copyAndClose(File(comunidad.codigoAcceso).writeChannel())
+                                val directory = File(comunidad.codigoAcceso)
+                                val file = File(directory, part.originalFileName!!)
+                                part.provider().copyTo(file.outputStream().buffered())
                             }
-
-                            else -> {
-                                part.dispose()
-                            }
+                            else -> Unit
+                        }
+                        part.dispose()
                     }
-                }
+                    call.respondText("Archivo uploaded successfully", status = HttpStatusCode.Created)
+                } ?: call.respondText("Comunidad not found", status = HttpStatusCode.NotFound)
+            } else {
+                call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
             }
         }
-    }
 }
 }
