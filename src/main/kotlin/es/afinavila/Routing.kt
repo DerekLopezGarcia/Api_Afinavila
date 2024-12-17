@@ -1,22 +1,20 @@
 package es.afinavila
 
 import es.afinavila.controler.ComunidadControler
-import es.afinavila.model.ArchivoDAO
-import es.afinavila.model.ArchivoModel
 import es.afinavila.model.ComunidadModel
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
-import io.ktor.http.content.streamProvider
 import io.ktor.server.application.*
 import io.ktor.server.http.content.staticResources
 import io.ktor.server.request.receive
-import io.ktor.server.request.receiveChannel
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.cio.writeChannel
 import io.ktor.utils.io.copyAndClose
+import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
 import java.io.File
 
 fun Application.configureRouting() {
@@ -72,30 +70,20 @@ fun Application.configureRouting() {
             if (id != null) {
                 comunidadControler.getComunidad(id)?.let { comunidad ->
                     val multipart = call.receiveMultipart()
-                    var descripcion: String? = null
                     multipart.forEachPart { part ->
                         when (part) {
                             is PartData.FileItem -> {
-                                val directory = File(comunidad.codigoAcceso)
-                                val file = File(directory, part.originalFileName!!)
-                                ArchivoModel(0, part.originalFileName!!, descripcion ?: "").let {
-                                    ArchivoDAO.addArchivo(it)
-                                }
-                                part.streamProvider().use { input ->
-                                    file.outputStream().buffered().use { output ->
-                                        input.copyTo(output)
-                                    }
-                                }
+                                val channel = part.provider()
+                                channel.copyAndClose(File(comunidad.codigoAcceso).writeChannel())
                             }
-                            else -> Unit
-                        }
-                        part.dispose()
+
+                            else -> {
+                                part.dispose()
+                            }
                     }
-                    call.respondText("Archivo uploaded successfully", status = HttpStatusCode.Created)
-                } ?: call.respondText("Comunidad not found", status = HttpStatusCode.NotFound)
-            } else {
-                call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
+                }
             }
         }
     }
+}
 }
