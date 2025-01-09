@@ -1,5 +1,6 @@
 package es.afinavila
 
+import es.afinavila.controler.ArchivoControler
 import es.afinavila.controler.ComunidadControler
 import es.afinavila.model.ComunidadModel
 import io.ktor.http.HttpStatusCode
@@ -21,6 +22,7 @@ import java.io.File
 
 fun Application.configureRouting() {
     val comunidadControler = ComunidadControler()
+    val archivoControler = ArchivoControler()
     routing {
         staticResources("/static", "static")
         get("/") {
@@ -57,6 +59,7 @@ fun Application.configureRouting() {
         get("/comunidades/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id != null) {
+                archivoControler.updateArchivos(id)
                 val comunidad = comunidadControler.getComunidad(id)
                 if (comunidad != null) {
                     call.respond(comunidad)
@@ -75,19 +78,43 @@ fun Application.configureRouting() {
                     multipart.forEachPart { part ->
                         when (part) {
                             is PartData.FileItem -> {
-                                val directory = File(comunidad.codigoAcceso)
-                                val file = File(directory, part.originalFileName!!)
+                                val file = File(comunidad.codigoAcceso, part.originalFileName!!)
                                 part.provider().copyTo(file.outputStream().buffered())
+                                archivoControler.addArchivo(id, file)
                             }
+
                             else -> Unit
                         }
                         part.dispose()
                     }
-                    call.respondText("Archivo uploaded successfully", status = HttpStatusCode.Created)
+                    call.respondText(
+                        "Archivo uploaded successfully",
+                        status = HttpStatusCode.Created
+                    )
                 } ?: call.respondText("Comunidad not found", status = HttpStatusCode.NotFound)
             } else {
                 call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
             }
         }
-}
+        delete("/archivo/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull()
+            if (id != null) {
+                archivoControler.deleteArchivo(id)
+                call.respondText("Archivo deleted successfully", status = HttpStatusCode.OK)
+            }
+        }
+        get("/archivo/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull()
+            if (id != null) {
+                val archivo = archivoControler.getArchivo(id)
+                if (archivo != null) {
+                    call.respond(archivo)
+                } else {
+                    call.respondText("Archivo not found", status = HttpStatusCode.NotFound)
+                }
+            } else {
+                call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
+            }
+        }
+    }
 }
