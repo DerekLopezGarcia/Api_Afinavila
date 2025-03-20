@@ -7,6 +7,7 @@ import java.io.File
 class ArchivoControler {
 
     fun getArchivo(id: Int) = ArchivoDAO.getArchivo(id)
+
     fun addArchivo(id: Int, file: File) {
         val comunidad = ComunidadControler().getComunidad(id)
         val directory = File(comunidad!!.codigoAcceso)
@@ -15,13 +16,17 @@ class ArchivoControler {
         }
         val destinationFile = File(directory, file.name)
         if (destinationFile.exists()) {
-            destinationFile.delete() // Overwrite the existing file
+            if (!destinationFile.delete()) {
+                throw Exception("Failed to delete existing file: ${destinationFile.absolutePath}")
+            }
         }
-        file.copyTo(destinationFile)
-        val archivoModel = ArchivoModel(
-            id = 0, nombre = file.name, descripcion = setDescription(file), comunidadId = comunidad.id
-        )
-        ArchivoDAO.addArchivo(archivoModel)
+        file.copyTo(destinationFile, overwrite = true)
+        val archivoModel = comunidad.id?.let {
+            ArchivoModel(
+                id = 0, nombre = file.name, descripcion = setDescription(file), comunidadId = it
+            )
+        }
+        archivoModel?.let { ArchivoDAO.addArchivo(it, destinationFile) }
     }
 
     fun deleteArchivo(id: Int) {
@@ -65,6 +70,7 @@ class ArchivoControler {
             "$typeDescription del año $fileYear"
         }
     }
+
     fun updateArchivos(id: Int) {
         val comunidad = ComunidadControler().getComunidad(id)
         val directory = File(comunidad!!.codigoAcceso)
@@ -72,10 +78,12 @@ class ArchivoControler {
             val existingFiles = ArchivoDAO.getArchivosByComunidad(id).map { it.nombre }.toSet()
             directory.listFiles()?.forEach { file ->
                 if (file.isFile && file.name !in existingFiles) {
-                    val archivoModel = ArchivoModel(
-                        id = 0, nombre = file.name, descripcion = setDescription(file), comunidadId = comunidad.id
-                    )
-                    ArchivoDAO.addArchivo(archivoModel)
+                    comunidad.id?.let { comunidadId ->
+                        val archivoModel = ArchivoModel(
+                            id = 0, nombre = file.name, descripcion = setDescription(file), comunidadId = comunidadId
+                        )
+                        ArchivoDAO.addArchivo(archivoModel, file)
+                    }
                 }
             }
         }

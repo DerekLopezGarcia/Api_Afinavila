@@ -47,6 +47,7 @@ fun Application.configureRouting() {
                 call.respondText("Comunidad not found", status = HttpStatusCode.NotFound)
             }
         }
+        // Ruta para actualizar Comunidad
         put("/comunidades/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             val comunidadModel = call.receive<ComunidadModel>()
@@ -56,6 +57,7 @@ fun Application.configureRouting() {
                 call.respondText("Comunidad not found", status = HttpStatusCode.NotFound)
             }
         }
+        // Ruta para obtener Comunidad
         get("/comunidades/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id != null) {
@@ -70,6 +72,7 @@ fun Application.configureRouting() {
                 call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
             }
         }
+        // Ruta para subir archivo
         post("/archivo/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id != null) {
@@ -96,6 +99,7 @@ fun Application.configureRouting() {
                 call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
             }
         }
+        // Ruta para eliminar archivo
         delete("/archivo/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id != null) {
@@ -103,6 +107,7 @@ fun Application.configureRouting() {
                 call.respondText("Archivo deleted successfully", status = HttpStatusCode.OK)
             }
         }
+        // Ruta para obtener archivo
         get("/archivo/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id != null) {
