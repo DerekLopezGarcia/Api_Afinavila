@@ -9,7 +9,7 @@ class ComunidadControler {
     fun getComunidades() = ComunidadDAO.getComunidades()
     fun addComunidad(comunidad: ComunidadModel) {
         ComunidadDAO.addComunidad(comunidad)
-        val directory = File(comunidad.codigoAcceso)
+        val directory = File("comunidades/${comunidad.codigoAcceso}")
         if (!directory.exists()) {
             directory.mkdirs()
         }

@@ -80,7 +80,7 @@ fun Application.configureRouting() {
                     multipart.forEachPart { part ->
                         when (part) {
                             is PartData.FileItem -> {
-                                val file = File(comunidad.codigoAcceso, part.originalFileName!!)
+                                val file = File("comunidades/${comunidad.codigoAcceso}", part.originalFileName!!)
                                 part.streamProvider().use { inputStream ->
                                     file.outputStream().buffered().use { outputStream ->
                                         inputStream.copyTo(outputStream)
