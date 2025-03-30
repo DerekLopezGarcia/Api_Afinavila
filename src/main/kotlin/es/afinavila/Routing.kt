@@ -123,5 +123,15 @@ fun Application.configureRouting() {
                 call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
             }
         }
+        // Ruta para obtener tdos los archivos de una comunidad
+        get("/archivos/{comunidadId}") {
+            val comunidadId = call.parameters["comunidadId"]?.toIntOrNull()
+            if (comunidadId != null) {
+                val archivos = archivoControler.getArchivosByComunidad(comunidadId)
+                call.respond(archivos)
+            } else {
+                call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
+            }
+        }
     }
 }

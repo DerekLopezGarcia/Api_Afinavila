@@ -29,10 +29,22 @@ fun ResultRow.toArchivo() = ArchivoModel(
 object ArchivoDAO {
     fun addArchivo(archivoModel: ArchivoModel, file: File) {
         transaction {
-            Archivo.insert {
-                it[nombre] = archivoModel.nombre
-                it[descripcion] = archivoModel.descripcion
-                it[comunidadId] = archivoModel.comunidadId
+            val existingArchivo = Archivo.select {
+                (Archivo.nombre eq archivoModel.nombre) and
+                        (Archivo.comunidadId eq archivoModel.comunidadId)
+            }.singleOrNull()
+            if (existingArchivo == null) {
+                Archivo.insert {
+                    it[nombre] = archivoModel.nombre
+                    it[descripcion] = archivoModel.descripcion
+                    it[comunidadId] = archivoModel.comunidadId
+                }
+            } else {
+                // Optionally, update the existing record if needed
+                Archivo.update({ Archivo.id eq existingArchivo[Archivo.id].value }) {
+                    it[descripcion] = archivoModel.descripcion
+                    it[comunidadId] = archivoModel.comunidadId
+                }
             }
         }
     }

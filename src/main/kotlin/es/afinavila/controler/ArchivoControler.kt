@@ -6,7 +6,15 @@ import java.io.File
 
 class ArchivoControler {
 
-    fun getArchivo(id: Int) = ArchivoDAO.getArchivo(id)
+    fun getArchivo(id: Int): String? {
+        val archivo = ArchivoDAO.getArchivo(id)
+        val comunidad = archivo?.comunidadId?.let { ComunidadControler().getComunidad(it) }
+        return if (archivo != null && comunidad != null) {
+            "https://www.afinavila.es/comunidades/${comunidad.codigoAcceso}/${archivo.nombre}"
+        } else {
+            null
+        }
+    }
 
     fun addArchivo(id: Int, file: File) {
         val comunidad = ComunidadControler().getComunidad(id)
@@ -27,9 +35,21 @@ class ArchivoControler {
 
     private fun setDescription(file: File): String {
         val fileName = file.nameWithoutExtension
+        if (fileName.length < 4) {
+            return fileName
+        }
         val fileType = if (fileName.startsWith("acta")) "acta" else fileName.substring(0, 3)
-        val fileYear =
-            if (fileType == "acta") fileName.substring(4, 10) else fileName.substring(3, 7)
+        val fileYear = if (fileType == "acta") {
+            if (fileName.length < 10) {
+                return fileName
+            }
+            "${fileName.substring(4, 6)}-${fileName.substring(6, 8)}-${fileName.substring(8, 10)}"
+        } else {
+            if (fileName.length < 7) {
+                return fileName
+            }
+            "${fileName.substring(3, 5)}-${fileName.substring(5, 7)}"
+        }
 
         val typeDescription = when (fileType) {
             "acta" -> "Acta"
@@ -46,15 +66,13 @@ class ArchivoControler {
             "oct" -> "Extracto Octubre"
             "nov" -> "Extracto Noviembre"
             "dic" -> "Extracto Diciembre"
-            else -> "Desconocido"
+            else -> fileName
         }
 
         return if (fileType == "acta") {
-            "$typeDescription del día ${fileYear.substring(0, 2)} de ${
-                fileYear.substring(
-                    2, 4
-                )
-            } del año ${fileYear.substring(4, 6)}"
+            "$typeDescription del día ${fileYear.substring(0, 2)} del mes ${fileYear.substring(3, 5)} del año ${fileYear.substring(6, 8)}"
+        } else if (typeDescription == fileName) {
+            typeDescription
         } else {
             "$typeDescription del año $fileYear"
         }
@@ -77,4 +95,6 @@ class ArchivoControler {
             }
         }
     }
+    fun getArchivosByComunidad(comunidadId: Int) = ArchivoDAO.getArchivosByComunidad(comunidadId)
+
 }

@@ -47,4 +47,9 @@ object ComunidadDAO {
     fun getComunidad(id: Int): ComunidadModel? = transaction {
         Comunidad.select { Comunidad.id eq id }.firstOrNull()?.toComunidad()
     }
+    fun getComunidadByCodigoAcceso(codigoAcceso: String): ComunidadModel? = transaction {
+        Comunidad.select { Comunidad.codacces eq codigoAcceso }
+            .map { it.toComunidad() }
+            .singleOrNull()
+    }
 }

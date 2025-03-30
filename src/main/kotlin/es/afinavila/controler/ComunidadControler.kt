@@ -17,5 +17,6 @@ class ComunidadControler {
     fun deleteComunidad(id: Int) = ComunidadDAO.deleteComunidad(id)
     fun updateComunidad(id: Int, comunidad: ComunidadModel) = ComunidadDAO.updateComunidad(id, comunidad)>0
     fun getComunidad(id: Int) = ComunidadDAO.getComunidad(id)
+    fun getComunidadByCodigoAcceso(codigoAcceso: String) = ComunidadDAO.getComunidadByCodigoAcceso(codigoAcceso)
 
 }
