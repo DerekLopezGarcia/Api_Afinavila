@@ -28,11 +28,6 @@ fun ResultRow.toArchivo() = ArchivoModel(
 
 object ArchivoDAO {
     fun addArchivo(archivoModel: ArchivoModel, file: File) {
-        val directory = File(file.parent)
-        if (!directory.exists()) {
-            directory.mkdirs()
-        }
-        file.copyTo(File(directory, file.name), overwrite = true)
         transaction {
             Archivo.insert {
                 it[nombre] = archivoModel.nombre

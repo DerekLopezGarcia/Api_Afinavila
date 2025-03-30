@@ -10,23 +10,12 @@ class ArchivoControler {
 
     fun addArchivo(id: Int, file: File) {
         val comunidad = ComunidadControler().getComunidad(id)
-        val directory = File(comunidad!!.codigoAcceso)
-        if (!directory.exists()) {
-            directory.mkdirs()
-        }
-        val destinationFile = File(directory, file.name)
-        if (destinationFile.exists()) {
-            if (!destinationFile.delete()) {
-                throw Exception("Failed to delete existing file: ${destinationFile.absolutePath}")
-            }
-        }
-        file.copyTo(destinationFile, overwrite = true)
-        val archivoModel = comunidad.id?.let {
+        val archivoModel = comunidad?.id?.let {
             ArchivoModel(
                 id = 0, nombre = file.name, descripcion = setDescription(file), comunidadId = it
             )
         }
-        archivoModel?.let { ArchivoDAO.addArchivo(it, destinationFile) }
+        archivoModel?.let { ArchivoDAO.addArchivo(it,file) }
     }
 
     fun deleteArchivo(id: Int) {

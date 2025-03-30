@@ -4,8 +4,7 @@ import es.afinavila.controler.ArchivoControler
 import es.afinavila.controler.ComunidadControler
 import es.afinavila.model.ComunidadModel
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.staticResources
 import io.ktor.server.request.receive
@@ -82,10 +81,13 @@ fun Application.configureRouting() {
                         when (part) {
                             is PartData.FileItem -> {
                                 val file = File(comunidad.codigoAcceso, part.originalFileName!!)
-                                part.provider().copyTo(file.outputStream().buffered())
+                                part.streamProvider().use { inputStream ->
+                                    file.outputStream().buffered().use { outputStream ->
+                                        inputStream.copyTo(outputStream)
+                                    }
+                                }
                                 archivoControler.addArchivo(id, file)
                             }
-
                             else -> Unit
                         }
                         part.dispose()
