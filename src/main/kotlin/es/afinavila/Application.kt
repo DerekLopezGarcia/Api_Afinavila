@@ -7,10 +7,11 @@ import org.jetbrains.exposed.sql.Database
 import es.afinavila.controler.ComunidadControler
 import es.afinavila.controler.ArchivoControler
 import es.afinavila.model.ComunidadModel
+import io.ktor.server.netty.*
 import java.io.File
 
 fun main(args: Array<String>) {
-    io.ktor.server.netty.EngineMain.main(args)
+    EngineMain.main(args)
 }
 
 fun Application.module() {
@@ -108,6 +109,10 @@ fun initializeDatabase() {
                     val nombre = codigoAccesoToNombre[codigoAcceso] ?: codigoAcceso
                     val newComunidad = ComunidadModel(nombre = nombre, codigoAcceso = codigoAcceso)
                     comunidadControler.addComunidad(newComunidad)
+                } else {
+                    val nombre = codigoAccesoToNombre[codigoAcceso] ?: comunidad.nombre
+                    comunidad.nombre = nombre
+                    comunidad.id?.let { comunidadControler.updateComunidad(it, comunidad) }
                 }
                 val comunidadId = comunidadControler.getComunidadByCodigoAcceso(codigoAcceso)?.id
                 comunidadId?.let {

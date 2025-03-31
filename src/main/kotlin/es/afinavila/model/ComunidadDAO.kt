@@ -13,7 +13,7 @@ object Comunidad : IntIdTable() {
 
 data class ComunidadModel(
     val id: Int? = null,
-    val nombre: String,
+    var nombre: String,
     val codigoAcceso: String
 )
 
