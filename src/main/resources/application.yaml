@@ -1,6 +1,11 @@
 ktor:
-    application:
-        modules:
-            - es.ApplicationKt.module
-    deployment:
-        port: 8080
+  application:
+    modules:
+      - es.afinavila.ApplicationKt.module
+  deployment:
+    port: 8081
+  database:
+    url: "jdbc:mysql://localhost:3306/mockafinavilabd"
+    driver: "com.mysql.cj.jdbc.Driver"
+    user: "root"
+    password: ""

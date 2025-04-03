@@ -1,4 +1,4 @@
-package es
+package es.afinavila
 
 import io.ktor.serialization.gson.*
 import io.ktor.server.application.*
