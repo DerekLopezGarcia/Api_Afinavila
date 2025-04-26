@@ -11,12 +11,6 @@ import io.ktor.server.request.receive
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.util.cio.writeChannel
-import io.ktor.utils.io.copyAndClose
-import io.ktor.utils.io.copyTo
-import io.ktor.utils.io.jvm.javaio.copyTo
-import io.ktor.utils.io.readRemaining
-import kotlinx.io.readByteArray
 import java.io.File
 
 fun Application.configureRouting() {
@@ -109,11 +103,11 @@ fun Application.configureRouting() {
                 call.respondText("Archivo deleted successfully", status = HttpStatusCode.OK)
             }
         }
-        // Ruta para obtener archivo
+        // Ruta para obtener la url archivo
         get("/archivo/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id != null) {
-                val archivo = archivoControler.getArchivo(id)
+                val archivo = archivoControler.getArchivoUrl(id)
                 if (archivo != null) {
                     call.respond(archivo)
                 } else {
@@ -133,5 +127,20 @@ fun Application.configureRouting() {
                 call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
             }
         }
+        // Ruta para obtener el archivo pdf
+        get("/archivo/pdf/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull()
+            if (id != null) {
+                val archivo = archivoControler.getArchivo(id)
+                if (archivo != null && archivo.exists()) {
+                    call.respondBytes(archivo.readBytes(), contentType = io.ktor.http.ContentType.Application.Pdf)
+                } else {
+                    call.respondText("Archivo not found or does not exist", status = HttpStatusCode.NotFound)
+                }
+            } else {
+                call.respondText("Invalid id", status = HttpStatusCode.BadRequest)
+            }
+        }
     }
 }
+

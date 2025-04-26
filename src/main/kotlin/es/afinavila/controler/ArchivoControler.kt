@@ -6,11 +6,22 @@ import java.io.File
 
 class ArchivoControler {
 
-    fun getArchivo(id: Int): String? {
+    fun getArchivoUrl(id: Int): String? {
         val archivo = ArchivoDAO.getArchivo(id)
         val comunidad = archivo?.comunidadId?.let { ComunidadControler().getComunidad(it) }
         return if (archivo != null && comunidad != null) {
-            "https://www.afinavila.es/comunidades/${comunidad.codigoAcceso}/${archivo.nombre}"
+            "{'url': 'https://www.afinavila.es/comunidades/${comunidad.codigoAcceso}/${archivo.nombre}'}"
+        } else {
+            null
+        }
+    }
+    fun getArchivo(id: Int): File? {
+        val archivo = ArchivoDAO.getArchivo(id)
+        val comunidad = archivo?.comunidadId?.let { ComunidadControler().getComunidad(it) }
+        return if (archivo != null && comunidad != null) {
+            val filePath = "comunidades/${comunidad.codigoAcceso}/${archivo.nombre}"
+            val file = File(filePath)
+            if (file.exists()) file else null
         } else {
             null
         }
