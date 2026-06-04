@@ -70,9 +70,14 @@ src/main/kotlin/es/afinavila/
 | Prefijo | Ejemplo | Categoría | nombreMostrar |
 |---------|---------|-----------|---------------|
 | `acta` | `acta250324.pdf` | Actas | Acta 25/03/2024 |
-| `evo` | `evo2407.pdf` | Evoluciones | Evolución 2do sem. 2024 |
-| `ene`-`dic` | `feb24.pdf` | Extractos | Febrero 2024 |
+| `evo` | `evo2407.pdf` | Evoluciones | Evolución 1er sem. 2024 |
+| `evo` | `evo2026.pdf` | Evoluciones | Evolución 2026 |
+| `evo` | `evo2425.pdf` | Evoluciones | Evolución 2024 – 2025 |
+| `ene`-`dic` | `feb25.pdf` | Extractos | Febrero 2025 |
+| `ene`-`dic` | `ene2024.pdf` | Extractos | Enero 2024 |
 | `cuota` | `cuota2025.pdf` | Otros | Cuota 2025 |
+
+Soporta años de 2 dígitos (`feb25`) y 4 dígitos (`feb2025`). Para evoluciones, detecta año simple (`evo2026`), año+semestre (`evo2401`), y rango de años (`evo2425`).
 
 ## Sincronización desde disco
 
