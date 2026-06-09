@@ -29,6 +29,7 @@ object FileNameParser {
             lower.startsWith("acta") -> parseActa(name)
             lower.startsWith("evo") -> parseEvo(name)
             meses.keys.any { lower.startsWith(it) } -> parseExtracto(name)
+            lower.startsWith("lectura") -> parseLectura(name)
             lower.startsWith("cuota") -> parseCuota(name)
             else -> ParsedFileName(
                 nombreMostrar = name,
@@ -112,6 +113,20 @@ object FileNameParser {
             descripcion = "Extracto mensual — $mes $year",
             categoria = "Extractos",
             fecha = "$year-${mesNum.toString().padStart(2, '0')}-01"
+        )
+    }
+
+    private fun parseLectura(name: String): ParsedFileName {
+        if (name.length < 11) return ParsedFileName(name, name, "Lecturas")
+        val yy = name.substring(7, 9)
+        val mm = name.substring(9, 11).toIntOrNull() ?: return ParsedFileName(name, name, "Lecturas")
+        if (mm !in 1..12) return ParsedFileName(name, name, "Lecturas")
+        val mesNombre = meses.values.elementAtOrNull(mm - 1) ?: return ParsedFileName(name, name, "Lecturas")
+        return ParsedFileName(
+            nombreMostrar = "Lectura $mm/20$yy",
+            descripcion = "Lectura de $mesNombre de 20$yy",
+            categoria = "Lecturas",
+            fecha = "20$yy-${mm.toString().padStart(2, '0')}-01"
         )
     }
 
