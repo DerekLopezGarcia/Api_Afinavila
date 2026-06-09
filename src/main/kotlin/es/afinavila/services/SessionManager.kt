@@ -20,10 +20,13 @@ object LoginRateLimiter {
 
 object SessionManager {
     private val sessions = ConcurrentHashMap<String, SessionData>()
+    private val adminSessions = ConcurrentHashMap<String, AdminSessionData>()
     private const val SESSION_TTL = 3600_000L
 
     data class SessionData(val codigoAcceso: String, val comunidadId: Int, val comunidadNombre: String, val createdAt: Long)
+    data class AdminSessionData(val createdAt: Long)
 
+    // === Sesiones de comunidad ===
     fun create(codigoAcceso: String, comunidadId: Int, comunidadNombre: String): String {
         val token = UUID.randomUUID().toString().replace("-", "")
         sessions[token] = SessionData(codigoAcceso, comunidadId, comunidadNombre, System.currentTimeMillis())
@@ -41,5 +44,25 @@ object SessionManager {
 
     fun remove(token: String) {
         sessions.remove(token)
+    }
+
+    // === Sesiones de admin ===
+    fun createAdminSession(): String {
+        val token = UUID.randomUUID().toString().replace("-", "")
+        adminSessions[token] = AdminSessionData(System.currentTimeMillis())
+        return token
+    }
+
+    fun validateAdmin(token: String): Boolean {
+        val data = adminSessions[token] ?: return false
+        if (System.currentTimeMillis() - data.createdAt > SESSION_TTL) {
+            adminSessions.remove(token)
+            return false
+        }
+        return true
+    }
+
+    fun removeAdmin(token: String) {
+        adminSessions.remove(token)
     }
 }
