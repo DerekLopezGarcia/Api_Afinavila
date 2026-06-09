@@ -79,9 +79,10 @@ fun Route.adminRoutes() {
                         .firstOrNull()
 
                     @Suppress("UNCHECKED_CAST")
-                    val data: Map<String, Any> = mapOf(
+                    val                     data: Map<String, Any> = mapOf(
                         "id" to id,
                         "nombre" to row[ComunidadTable.nombre],
+                        "numeroComunidad" to row[ComunidadTable.numeroComunidad],
                         "claveAcceso" to row[ComunidadTable.claveAcceso],
                         "codigoAcceso" to row[ComunidadTable.codigoAcceso],
                         "totalArchivos" to totalArchivos.toInt(),
