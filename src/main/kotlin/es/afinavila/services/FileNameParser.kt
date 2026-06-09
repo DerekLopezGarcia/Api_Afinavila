@@ -3,7 +3,8 @@ package es.afinavila.services
 data class ParsedFileName(
     val nombreMostrar: String,
     val descripcion: String,
-    val categoria: String
+    val categoria: String,
+    val fecha: String? = null
 )
 
 object FileNameParser {
@@ -12,6 +13,12 @@ object FileNameParser {
         "abr" to "Abril", "may" to "Mayo", "jun" to "Junio",
         "jul" to "Julio", "ago" to "Agosto", "sep" to "Septiembre",
         "oct" to "Octubre", "nov" to "Noviembre", "dic" to "Diciembre"
+    )
+
+    private val mesNumero = mapOf(
+        "ene" to 1, "feb" to 2, "mar" to 3, "abr" to 4,
+        "may" to 5, "jun" to 6, "jul" to 7, "ago" to 8,
+        "sep" to 9, "oct" to 10, "nov" to 11, "dic" to 12
     )
 
     fun parse(filename: String): ParsedFileName {
@@ -40,7 +47,8 @@ object FileNameParser {
         return ParsedFileName(
             nombreMostrar = "Acta $dd/$mm/20$yy",
             descripcion = "Acta de reunión del $dd de $mesNombre de 20$yy",
-            categoria = "Actas"
+            categoria = "Actas",
+            fecha = "20$yy-${mm.toString().padStart(2, '0')}-${dd.padStart(2, '0')}"
         )
     }
 
@@ -53,7 +61,8 @@ object FileNameParser {
             return ParsedFileName(
                 nombreMostrar = "Evolución $fullYear",
                 descripcion = "Evolución anual — $fullYear",
-                categoria = "Evoluciones"
+                categoria = "Evoluciones",
+                fecha = "$fullYear-01-01"
             )
         }
 
@@ -62,10 +71,12 @@ object FileNameParser {
         if (mm != null && mm in 1..12) {
             val semestre = if (mm <= 6) "1er sem." else "2do sem."
             val periodo = if (mm <= 6) "Enero a Junio" else "Julio a Diciembre"
+            val fechaMes = if (mm <= 6) "01" else "07"
             return ParsedFileName(
                 nombreMostrar = "Evolución $semestre 20$yy",
                 descripcion = "Evolución anual — $periodo 20$yy",
-                categoria = "Evoluciones"
+                categoria = "Evoluciones",
+                fecha = "20$yy-$fechaMes-01"
             )
         }
 
@@ -76,7 +87,8 @@ object FileNameParser {
             return ParsedFileName(
                 nombreMostrar = "Evolución 20$yy – 20$yy2Raw",
                 descripcion = "Evolución — de 20$yy a 20$yy2Raw",
-                categoria = "Evoluciones"
+                categoria = "Evoluciones",
+                fecha = "20$yy-01-01"
             )
         }
 
@@ -87,6 +99,7 @@ object FileNameParser {
         if (name.length < 4) return ParsedFileName(name, name, "Extractos")
         val prefijo = name.substring(0, 3).lowercase()
         val mes = meses[prefijo] ?: return ParsedFileName(name, name, "Extractos")
+        val mesNum = mesNumero[prefijo] ?: 1
         val yearSuffix = name.substring(3)
         val year = when {
             yearSuffix.length == 4 && yearSuffix.toIntOrNull() != null -> yearSuffix
@@ -97,7 +110,8 @@ object FileNameParser {
         return ParsedFileName(
             nombreMostrar = "$mes $year",
             descripcion = "Extracto mensual — $mes $year",
-            categoria = "Extractos"
+            categoria = "Extractos",
+            fecha = "$year-${mesNum.toString().padStart(2, '0')}-01"
         )
     }
 
@@ -108,7 +122,8 @@ object FileNameParser {
         return ParsedFileName(
             nombreMostrar = "Cuota $year",
             descripcion = "Cuota anual $year",
-            categoria = "Otros"
+            categoria = "Otros",
+            fecha = "$year-01-01"
         )
     }
 }
