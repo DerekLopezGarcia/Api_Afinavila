@@ -117,9 +117,12 @@ object FileNameParser {
     }
 
     private fun parseLectura(name: String): ParsedFileName {
-        if (name.length < 11) return ParsedFileName(name, name, "Lecturas")
-        val yy = name.substring(7, 9)
-        val mm = name.substring(9, 11).toIntOrNull() ?: return ParsedFileName(name, name, "Lecturas")
+        // Soporta "lecturaXXMM" (sin s) y "lecturasXXMM" (con s)
+        val prefixLen = if (name.lowercase().startsWith("lecturas")) 8 else 7
+        if (name.length < prefixLen + 4) return ParsedFileName(name, name, "Lecturas")
+        val yy = name.substring(prefixLen, prefixLen + 2)
+        val mm = name.substring(prefixLen + 2, prefixLen + 4).toIntOrNull()
+            ?: return ParsedFileName(name, name, "Lecturas")
         if (mm !in 1..12) return ParsedFileName(name, name, "Lecturas")
         val mesNombre = meses.values.elementAtOrNull(mm - 1) ?: return ParsedFileName(name, name, "Lecturas")
         return ParsedFileName(
