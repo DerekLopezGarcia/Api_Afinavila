@@ -51,7 +51,20 @@ object ArchivoService {
             val existing = ArchivoTable.select {
                 (ArchivoTable.comunidadId eq comunidad.id) and (ArchivoTable.nombre eq filename)
             }.singleOrNull()
-            if (existing != null) return@transaction existing.toResponse()
+
+            if (existing != null) {
+                // Actualizar si el nombreMostrar o descripcion ha cambiado (ej: cambio en FileNameParser)
+                val oldMostrar = existing[ArchivoTable.nombreMostrar]
+                val oldDesc = existing[ArchivoTable.descripcion]
+                if (oldMostrar != parsed.nombreMostrar || oldDesc != parsed.descripcion) {
+                    ArchivoTable.update({ ArchivoTable.id eq existing[ArchivoTable.id] }) {
+                        it[nombreMostrar] = parsed.nombreMostrar
+                        it[descripcion] = parsed.descripcion
+                        it[fecha] = parsed.fecha
+                    }
+                }
+                return@transaction existing.toResponse()
+            }
 
             val newId: EntityID<Int> = ArchivoTable.insertAndGetId {
                 it[nombre] = filename

@@ -125,9 +125,10 @@ object FileNameParser {
             ?: return ParsedFileName(name, name, "Lecturas")
         if (mm !in 1..12) return ParsedFileName(name, name, "Lecturas")
         val mesNombre = meses.values.elementAtOrNull(mm - 1) ?: return ParsedFileName(name, name, "Lecturas")
+        val yearFull = "20$yy"
         return ParsedFileName(
-            nombreMostrar = "Lectura $mm/20$yy",
-            descripcion = "Lectura de $mesNombre de 20$yy",
+            nombreMostrar = "Lecturas de $mesNombre del $yearFull",
+            descripcion = "Lecturas de $mesNombre del $yearFull",
             categoria = "Lecturas",
             fecha = "20$yy-${mm.toString().padStart(2, '0')}-01"
         )

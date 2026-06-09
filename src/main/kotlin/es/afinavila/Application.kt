@@ -24,5 +24,20 @@ fun Application.module(dbPath: String = "data/afinavila.db") {
     configureStatusPages()
     configureRouting()
 
+    // Sync inicial al arrancar
     ArchivoService.syncFromDisk()
+
+    // Sync automático cada 60s para detectar cambios en disco
+    Thread {
+        while (true) {
+            try {
+                Thread.sleep(60_000L)
+                ArchivoService.syncFromDisk()
+            } catch (_: InterruptedException) {
+                break
+            } catch (_: Exception) {
+                // No romper el bucle si hay error temporal
+            }
+        }
+    }.apply { isDaemon = true; name = "disk-sync" }.start()
 }
