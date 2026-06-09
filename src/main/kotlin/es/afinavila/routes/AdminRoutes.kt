@@ -67,7 +67,7 @@ fun Route.adminRoutes() {
 
         val comunidades = transaction {
             ComunidadTable.selectAll()
-                .orderBy(ComunidadTable.nombre)
+                .orderBy(ComunidadTable.numeroComunidad)
                 .map { row ->
                     val id = row[ComunidadTable.id].value
                     val totalArchivos = ArchivoTable.select { ArchivoTable.comunidadId eq id }.count()
