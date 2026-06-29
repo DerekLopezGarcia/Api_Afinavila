@@ -1,7 +1,8 @@
 package es.afinavila.routes
 
-import es.afinavila.models.ComunidadTable
 import es.afinavila.models.ArchivoTable
+import es.afinavila.models.ComunidadTable
+import es.afinavila.services.ArchivoService
 import es.afinavila.services.LoginRateLimiter
 import es.afinavila.services.SessionManager
 import io.ktor.http.*
@@ -12,7 +13,8 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
-private const val ADMIN_PASSWORD = "482687"
+private val ADMIN_PASSWORD: String = System.getenv("ADMIN_PASSWORD")
+    ?: error("ADMIN_PASSWORD environment variable not set")
 
 fun Route.adminRoutes() {
     post("/admin/login") {
@@ -108,23 +110,17 @@ fun Route.adminRoutes() {
         }
 
         val comunidad = transaction {
-            ComunidadTable.select { ComunidadTable.codigoAcceso eq codigo }
+            ComunidadTable.select { ComunidadTable.claveAcceso eq codigo }
                 .firstOrNull()
+        } ?: run {
+            // Fallback a codigoAcceso por compatibilidad
+            transaction {
+                ComunidadTable.select { ComunidadTable.codigoAcceso eq codigo }
+                    .firstOrNull()
+            }
         } ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
 
-        val archivos = transaction {
-            ArchivoTable.select { ArchivoTable.comunidadId eq comunidad[ComunidadTable.id].value }
-                .orderBy(ArchivoTable.fecha to SortOrder.DESC_NULLS_LAST, ArchivoTable.nombreMostrar to SortOrder.ASC)
-                .map { row ->
-                    mapOf(
-                        "id" to row[ArchivoTable.id].value,
-                        "nombre" to row[ArchivoTable.nombre],
-                        "nombreMostrar" to row[ArchivoTable.nombreMostrar],
-                        "descripcion" to row[ArchivoTable.descripcion],
-                        "fecha" to (row[ArchivoTable.fecha] ?: "")
-                    )
-                }
-        }
+        val archivos = ArchivoService.findByComunidad(comunidad[ComunidadTable.id].value)
 
         call.respond(mapOf(
             "id" to comunidad[ComunidadTable.id].value,

@@ -1,7 +1,6 @@
 package es.afinavila.services
 
 import es.afinavila.models.*
-import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
@@ -66,7 +65,7 @@ object ArchivoService {
                 return@transaction existing.toResponse()
             }
 
-            val newId: EntityID<Int> = ArchivoTable.insertAndGetId {
+            val newId = ArchivoTable.insertAndGetId {
                 it[nombre] = filename
                 it[nombreMostrar] = parsed.nombreMostrar
                 it[descripcion] = parsed.descripcion
@@ -92,9 +91,6 @@ object ArchivoService {
         val newFormat = Regex("^\\d{1,2} [a-zA-Z0-9]+$")
         val oldFormat = Regex("^[a-zA-Z0-9]+$")
 
-        // 1. Recolectar todos los IDs de comunidad que existen en disco
-        val comunidadesEnDisco = mutableSetOf<Int>()
-
         rootDir.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
             val folderName = dir.name
             val (numero, clave) = when {
@@ -109,59 +105,34 @@ object ArchivoService {
             }
 
             val codigoAcceso = if (numero.isNotEmpty()) "$numero $clave" else clave
-            var comunidad = ComunidadService.findByCodigoAcceso(codigoAcceso)
-                ?: ComunidadService.findByClaveAcceso(clave)
 
-            if (comunidad == null) {
-                val nombreReal = ComunidadNames.getName(clave)
-                    .let { if (it == clave) ComunidadNames.getName(folderName) else it }
-                    .let { if (it == folderName) clave else it }
-                comunidad = ComunidadService.create(
+            // La clave debe existir en comunidad_names.json (el maestro de nombres).
+            // Si no está en el JSON, ignoramos esta carpeta — no se crea comunidad ni se sincronizan archivos.
+            val nombreEnJson = ComunidadNames.getName(clave)
+            if (nombreEnJson == clave) return@forEach
+
+            // Buscar comunidad existente; si no existe en BD, crearla
+            val comunidad = ComunidadService.findByCodigoAcceso(codigoAcceso)
+                ?: ComunidadService.findByClaveAcceso(clave)
+                ?: ComunidadService.create(
                     ComunidadRequest(
-                        nombre = nombreReal,
+                        nombre = nombreEnJson,
                         numeroComunidad = numero.ifEmpty { "00" },
                         claveAcceso = clave
                     )
                 )
-            } else {
-                val nombreReal = ComunidadNames.getName(clave)
-                    .let { if (it == clave) ComunidadNames.getName(folderName) else it }
-                if (nombreReal != comunidad.nombre && nombreReal != clave && nombreReal != folderName) {
-                    ComunidadService.updateNombre(comunidad.id, nombreReal)
-                    comunidad = ComunidadService.findById(comunidad.id)
-                }
-            }
 
-            comunidadesEnDisco.add(comunidad!!.id)
-
-            // 2. Sincronizar archivos de esta comunidad
+            // Sincronizar archivos de esta comunidad
             val pdfsEnDisco = dir.listFiles()?.filter {
                 !it.isDirectory && it.name.lowercase().endsWith(".pdf") &&
                     it.name.matches(Regex("^[a-zA-Z0-9._\\- ()]+\\.pdf\$"))
             }?.map { it.name }?.toSet() ?: emptySet()
 
-            // Añadir archivos nuevos
             pdfsEnDisco.forEach { filename ->
-                addFile(comunidad!!, filename)
+                addFile(comunidad, filename)
             }
 
-            // Eliminar archivos que ya no están en disco
-            deleteFilesNotIn(comunidad!!.id, pdfsEnDisco)
-        }
-
-        // 3. Eliminar comunidades cuyas carpetas ya no existen en disco
-        val todasLasComunidades = transaction {
-            ComunidadTable.selectAll().map { it[ComunidadTable.id].value }
-        }
-        val comunidadesAEliminar = todasLasComunidades - comunidadesEnDisco
-        if (comunidadesAEliminar.isNotEmpty()) {
-            val entityIds = comunidadesAEliminar.map { EntityID(it, ComunidadTable) }
-            transaction {
-                // Primero eliminar archivos de esas comunidades
-                ArchivoTable.deleteWhere { ArchivoTable.comunidadId inList comunidadesAEliminar }
-                // Luego eliminar comunidades (id es EntityID<Int>, no Int directo)
-                ComunidadTable.deleteWhere { ComunidadTable.id inList entityIds }
-            }
+            deleteFilesNotIn(comunidad.id, pdfsEnDisco)
         }
     }
 
