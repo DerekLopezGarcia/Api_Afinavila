@@ -10,6 +10,10 @@ import io.ktor.server.routing.*
 
 fun Route.archivoRoutes() {
 
+    val allowLegacyPublicAccess = System.getenv("ALLOW_LEGACY_PUBLIC_ACCESS")?.toBooleanStrictOrNull() == true
+    val secureCookies = System.getenv("COOKIE_SECURE")?.toBooleanStrictOrNull() ?: true
+    val cookieExtensions = mapOf("SameSite" to "Lax")
+
     get("/health") {
         call.respond(mapOf("status" to "ok"))
     }
@@ -42,13 +46,26 @@ fun Route.archivoRoutes() {
                 name = "afinavila_token",
                 value = token,
                 httpOnly = true,
-                secure = false,
+                secure = secureCookies,
                 path = "/api/",
-                maxAge = 3600
+                maxAge = 3600,
+                extensions = cookieExtensions
             )
         )
 
-        call.respond(ComunidadResponse(comunidad.id, comunidad.nombre, "", "", ""))
+        call.respond(mapOf(
+            "id" to comunidad.id,
+            "nombre" to comunidad.nombre
+        ))
+    }
+
+    post("/auth/logout") {
+        call.request.cookies["afinavila_token"]?.let(SessionManager::remove)
+        call.response.cookies.append(
+            Cookie("afinavila_token", "", httpOnly = true, secure = secureCookies,
+                path = "/api/", maxAge = 0, extensions = cookieExtensions)
+        )
+        call.respond(mapOf("status" to "ok"))
     }
 
     get("/auth/me") {
@@ -62,6 +79,9 @@ fun Route.archivoRoutes() {
     }
 
     get("/comunidad/{codigoAcceso}") {
+        if (!allowLegacyPublicAccess) {
+            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+        }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         if (codigo.isEmpty() || !codigo.matches(Regex("^[a-zA-Z0-9]+$"))) {
             return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
@@ -72,6 +92,9 @@ fun Route.archivoRoutes() {
     }
 
     get("/archivos/{codigoAcceso}") {
+        if (!allowLegacyPublicAccess) {
+            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+        }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         if (codigo.isEmpty() || !codigo.matches(Regex("^[a-zA-Z0-9]+$"))) {
             return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
@@ -83,6 +106,9 @@ fun Route.archivoRoutes() {
     }
 
     get("/archivo/pdf/{codigoAcceso}/{id}") {
+        if (!allowLegacyPublicAccess) {
+            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+        }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         val id = call.parameters["id"]?.toIntOrNull()
             ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))

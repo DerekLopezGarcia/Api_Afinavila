@@ -13,10 +13,11 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
-private val ADMIN_PASSWORD: String = System.getenv("ADMIN_PASSWORD")
-    ?: error("ADMIN_PASSWORD environment variable not set")
+private fun configuredAdminPassword(): String? = System.getenv("ADMIN_PASSWORD")
 
 fun Route.adminRoutes() {
+    val secureCookies = System.getenv("COOKIE_SECURE")?.toBooleanStrictOrNull() ?: true
+    val cookieExtensions = mapOf("SameSite" to "Strict")
     post("/admin/login") {
         val ip = call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
             ?: call.request.headers["X-Real-IP"]
@@ -33,7 +34,9 @@ fun Route.adminRoutes() {
             ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Petición inválida"))
 
         val password = body["password"] ?: ""
-        if (password != ADMIN_PASSWORD) {
+        val adminPassword = configuredAdminPassword()
+            ?: return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "Autenticación no configurada"))
+        if (password != adminPassword) {
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Contraseña incorrecta"))
         }
 
@@ -44,13 +47,23 @@ fun Route.adminRoutes() {
                 name = "afinavila_admin_token",
                 value = token,
                 httpOnly = true,
-                secure = false,
+                secure = secureCookies,
                 path = "/",
-                maxAge = 3600
+                maxAge = 3600,
+                extensions = cookieExtensions
             )
         )
 
         call.respond(mapOf("status" to "ok", "role" to "admin"))
+    }
+
+    post("/admin/logout") {
+        call.request.cookies["afinavila_admin_token"]?.let(SessionManager::removeAdmin)
+        call.response.cookies.append(
+            Cookie("afinavila_admin_token", "", httpOnly = true, secure = secureCookies,
+                path = "/", maxAge = 0, extensions = cookieExtensions)
+        )
+        call.respond(mapOf("status" to "ok"))
     }
 
     get("/admin/me") {
@@ -129,5 +142,21 @@ fun Route.adminRoutes() {
             "codigoAcceso" to comunidad[ComunidadTable.codigoAcceso],
             "archivos" to archivos
         ))
+    }
+
+    get("/admin/archivo/pdf/{codigoAcceso}/{id}") {
+        val token = call.request.cookies["afinavila_admin_token"]
+        if (token == null || !SessionManager.validateAdmin(token)) {
+            return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
+        }
+        val codigo = call.parameters["codigoAcceso"]
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
+        val id = call.parameters["id"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+        val file = ArchivoService.getPdfFileByCodigo(codigo, id)
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
+        call.response.header("Content-Type", "application/pdf")
+        call.response.header("Content-Disposition", "inline; filename=\"${file.name}\"")
+        call.respondFile(file)
     }
 }

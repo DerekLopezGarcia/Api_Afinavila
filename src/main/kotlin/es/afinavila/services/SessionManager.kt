@@ -11,10 +11,12 @@ object LoginRateLimiter {
     fun tryAcquire(ip: String): Boolean {
         val now = System.currentTimeMillis()
         val list = attempts.getOrPut(ip) { mutableListOf() }
-        list.removeAll { now - it > WINDOW_MS }
-        if (list.size >= MAX_ATTEMPTS) return false
-        list.add(now)
-        return true
+        return synchronized(list) {
+            list.removeAll { now - it > WINDOW_MS }
+            if (list.size >= MAX_ATTEMPTS) return@synchronized false
+            list.add(now)
+            true
+        }
     }
 }
 
