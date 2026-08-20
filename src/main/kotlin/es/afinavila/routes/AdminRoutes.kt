@@ -19,8 +19,8 @@ fun Route.adminRoutes() {
     val secureCookies = System.getenv("COOKIE_SECURE")?.toBooleanStrictOrNull() ?: true
     val cookieExtensions = mapOf("SameSite" to "Strict")
     post("/admin/login") {
-        val ip = call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
-            ?: call.request.headers["X-Real-IP"]
+        val ip = call.request.headers["X-Real-IP"]?.trim()
+            ?: call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
             ?: call.request.local.remoteHost
 
         if (!LoginRateLimiter.tryAcquire(ip)) {
