@@ -5,10 +5,11 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import es.afinavila.models.ComunidadTable
 import es.afinavila.models.ArchivoTable
+import es.afinavila.models.SessionTable
 
 fun Application.configureDatabases(dbPath: String) {
     Database.connect("jdbc:sqlite:$dbPath?foreign_keys=ON&journal_mode=WAL", "org.sqlite.JDBC")
     transaction {
-        SchemaUtils.createMissingTablesAndColumns(ComunidadTable, ArchivoTable)
+        SchemaUtils.createMissingTablesAndColumns(ComunidadTable, ArchivoTable, SessionTable)
     }
 }

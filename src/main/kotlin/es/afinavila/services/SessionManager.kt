@@ -1,6 +1,15 @@
 package es.afinavila.services
 
-import java.util.*
+import es.afinavila.models.SessionTable
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
+import java.security.MessageDigest
+import java.util.Base64
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object LoginRateLimiter {
@@ -23,50 +32,75 @@ object LoginRateLimiter {
 }
 
 object SessionManager {
-    private val sessions = ConcurrentHashMap<String, SessionData>()
-    private val adminSessions = ConcurrentHashMap<String, AdminSessionData>()
     private const val SESSION_TTL = 3600_000L
+    private const val CLIENT_KIND = "client"
+    private const val ADMIN_KIND = "admin"
 
     data class SessionData(val codigoAcceso: String, val comunidadId: Int, val comunidadNombre: String, val createdAt: Long)
-    data class AdminSessionData(val createdAt: Long)
 
-    // === Sesiones de comunidad ===
+    private fun newToken(): String = UUID.randomUUID().toString().replace("-", "")
+
+    private fun hash(token: String): String = Base64.getUrlEncoder().withoutPadding().encodeToString(
+        MessageDigest.getInstance("SHA-256").digest(token.toByteArray(Charsets.UTF_8))
+    )
+
     fun create(codigoAcceso: String, comunidadId: Int, comunidadNombre: String): String {
-        val token = UUID.randomUUID().toString().replace("-", "")
-        sessions[token] = SessionData(codigoAcceso, comunidadId, comunidadNombre, System.currentTimeMillis())
+        val token = newToken()
+        val now = System.currentTimeMillis()
+        transaction {
+            SessionTable.insert {
+                it[tokenHash] = hash(token)
+                it[kind] = CLIENT_KIND
+                it[SessionTable.codigoAcceso] = codigoAcceso
+                it[SessionTable.comunidadId] = comunidadId
+                it[SessionTable.comunidadNombre] = comunidadNombre
+                it[createdAt] = now
+            }
+        }
         return token
     }
 
-    fun validate(token: String): SessionData? {
-        val data = sessions[token] ?: return null
-        if (System.currentTimeMillis() - data.createdAt > SESSION_TTL) {
-            sessions.remove(token)
-            return null
+    fun validate(token: String): SessionData? = transaction {
+        val row = SessionTable.select {
+            (SessionTable.tokenHash eq hash(token)) and (SessionTable.kind eq CLIENT_KIND)
+        }.singleOrNull() ?: return@transaction null
+        if (System.currentTimeMillis() - row[SessionTable.createdAt] > SESSION_TTL) {
+            SessionTable.deleteWhere { SessionTable.tokenHash eq hash(token) }
+            return@transaction null
         }
-        return data
+        SessionData(
+            row[SessionTable.codigoAcceso] ?: return@transaction null,
+            row[SessionTable.comunidadId] ?: return@transaction null,
+            row[SessionTable.comunidadNombre] ?: return@transaction null,
+            row[SessionTable.createdAt]
+        )
     }
 
     fun remove(token: String) {
-        sessions.remove(token)
+        transaction { SessionTable.deleteWhere { SessionTable.tokenHash eq hash(token) } }
     }
 
-    // === Sesiones de admin ===
     fun createAdminSession(): String {
-        val token = UUID.randomUUID().toString().replace("-", "")
-        adminSessions[token] = AdminSessionData(System.currentTimeMillis())
+        val token = newToken()
+        transaction {
+            SessionTable.insert {
+                it[tokenHash] = hash(token)
+                it[kind] = ADMIN_KIND
+                it[createdAt] = System.currentTimeMillis()
+            }
+        }
         return token
     }
 
-    fun validateAdmin(token: String): Boolean {
-        val data = adminSessions[token] ?: return false
-        if (System.currentTimeMillis() - data.createdAt > SESSION_TTL) {
-            adminSessions.remove(token)
-            return false
-        }
-        return true
+    fun validateAdmin(token: String): Boolean = transaction {
+        val row = SessionTable.select {
+            (SessionTable.tokenHash eq hash(token)) and (SessionTable.kind eq ADMIN_KIND)
+        }.singleOrNull() ?: return@transaction false
+        if (System.currentTimeMillis() - row[SessionTable.createdAt] > SESSION_TTL) {
+            SessionTable.deleteWhere { SessionTable.tokenHash eq hash(token) }
+            false
+        } else true
     }
 
-    fun removeAdmin(token: String) {
-        adminSessions.remove(token)
-    }
+    fun removeAdmin(token: String) = remove(token)
 }

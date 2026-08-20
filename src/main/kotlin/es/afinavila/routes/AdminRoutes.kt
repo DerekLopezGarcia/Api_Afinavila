@@ -4,6 +4,8 @@ import es.afinavila.models.ArchivoTable
 import es.afinavila.models.ComunidadTable
 import es.afinavila.services.ArchivoService
 import es.afinavila.services.ComunidadService
+import es.afinavila.services.PasswordVerifier
+import es.afinavila.services.RequestSecurity
 import es.afinavila.services.LoginRateLimiter
 import es.afinavila.services.SessionManager
 import io.ktor.http.*
@@ -14,12 +16,13 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
-private fun configuredAdminPassword(): String? = System.getenv("ADMIN_PASSWORD")
-
 fun Route.adminRoutes() {
     val secureCookies = System.getenv("COOKIE_SECURE")?.toBooleanStrictOrNull() ?: true
     val cookieExtensions = mapOf("SameSite" to "Strict")
     post("/admin/login") {
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
         val ip = call.request.headers["X-Real-IP"]?.trim()
             ?: call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
             ?: call.request.local.remoteHost
@@ -35,9 +38,7 @@ fun Route.adminRoutes() {
             ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Petición inválida"))
 
         val password = body["password"] ?: ""
-        val adminPassword = configuredAdminPassword()
-            ?: return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "Autenticación no configurada"))
-        if (password != adminPassword) {
+        if (!PasswordVerifier.matches(password)) {
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Contraseña incorrecta"))
         }
 
@@ -59,6 +60,9 @@ fun Route.adminRoutes() {
     }
 
     post("/admin/logout") {
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
         call.request.cookies["afinavila_admin_token"]?.let(SessionManager::removeAdmin)
         call.response.cookies.append(
             Cookie("afinavila_admin_token", "", httpOnly = true, secure = secureCookies,

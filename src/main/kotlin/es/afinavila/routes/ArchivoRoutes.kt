@@ -19,6 +19,9 @@ fun Route.archivoRoutes() {
     }
 
     post("/auth/login") {
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
         val ip = call.request.headers["X-Real-IP"]?.trim()
             ?: call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
             ?: call.request.local.remoteHost
@@ -60,6 +63,9 @@ fun Route.archivoRoutes() {
     }
 
     post("/auth/logout") {
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
         call.request.cookies["afinavila_token"]?.let(SessionManager::remove)
         call.response.cookies.append(
             Cookie("afinavila_token", "", httpOnly = true, secure = secureCookies,
