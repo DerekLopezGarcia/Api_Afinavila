@@ -3,6 +3,7 @@ package es.afinavila.routes
 import es.afinavila.models.ArchivoTable
 import es.afinavila.models.ComunidadTable
 import es.afinavila.services.ArchivoService
+import es.afinavila.services.ComunidadService
 import es.afinavila.services.LoginRateLimiter
 import es.afinavila.services.SessionManager
 import io.ktor.http.*
@@ -111,26 +112,16 @@ fun Route.adminRoutes() {
         call.respond(comunidades)
     }
 
-    get("/admin/comunidad/{codigoAcceso}") {
+    get("/admin/comunidad/{id}") {
         val token = call.request.cookies["afinavila_admin_token"]
         if (token == null || !SessionManager.validateAdmin(token)) {
             return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
         }
 
-        val codigo = call.parameters["codigoAcceso"] ?: ""
-        if (codigo.isEmpty()) {
-            return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
-        }
-
+        val id = call.parameters["id"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
         val comunidad = transaction {
-            ComunidadTable.select { ComunidadTable.claveAcceso eq codigo }
-                .firstOrNull()
-        } ?: run {
-            // Fallback a codigoAcceso por compatibilidad
-            transaction {
-                ComunidadTable.select { ComunidadTable.codigoAcceso eq codigo }
-                    .firstOrNull()
-            }
+            ComunidadTable.select { ComunidadTable.id eq id }.firstOrNull()
         } ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
 
         val archivos = ArchivoService.findByComunidad(comunidad[ComunidadTable.id].value)
@@ -144,16 +135,18 @@ fun Route.adminRoutes() {
         ))
     }
 
-    get("/admin/archivo/pdf/{codigoAcceso}/{id}") {
+    get("/admin/comunidad/{comunidadId}/archivo/pdf/{id}") {
         val token = call.request.cookies["afinavila_admin_token"]
         if (token == null || !SessionManager.validateAdmin(token)) {
             return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
         }
-        val codigo = call.parameters["codigoAcceso"]
-            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
+        val comunidadId = call.parameters["comunidadId"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID de comunidad inválido"))
         val id = call.parameters["id"]?.toIntOrNull()
             ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
-        val file = ArchivoService.getPdfFileByCodigo(codigo, id)
+        val comunidad = ComunidadService.findById(comunidadId)
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
+        val file = ArchivoService.getPdfFileByCodigo(comunidad.codigoAcceso, id)
             ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
         val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
         call.response.header("Content-Type", "application/pdf")
