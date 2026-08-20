@@ -25,11 +25,11 @@ object PasswordVerifier {
             ITERATIONS,
             Base64.getUrlEncoder().withoutPadding().encodeToString(salt),
             Base64.getUrlEncoder().withoutPadding().encodeToString(derived)
-        ).joinToString("$")
+        ).joinToString("|")
     }
 
     private fun verifyPbkdf2(password: String, encoded: String): Boolean = runCatching {
-        val parts = encoded.split('$')
+        val parts = encoded.split('|')
         require(parts.size == 4 && parts[0] == "pbkdf2-sha256")
         val iterations = parts[1].toInt()
         val salt = Base64.getUrlDecoder().decode(parts[2])
