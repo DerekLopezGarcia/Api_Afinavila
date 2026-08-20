@@ -7,8 +7,10 @@ object LoginRateLimiter {
     private val attempts = ConcurrentHashMap<String, MutableList<Long>>()
     private const val MAX_ATTEMPTS = 5
     private const val WINDOW_MS = 60_000L
+    private const val MAX_TRACKED_KEYS = 10_000
 
     fun tryAcquire(ip: String): Boolean {
+        if (attempts.size > MAX_TRACKED_KEYS) attempts.clear()
         val now = System.currentTimeMillis()
         val list = attempts.getOrPut(ip) { mutableListOf() }
         return synchronized(list) {

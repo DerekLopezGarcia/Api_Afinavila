@@ -119,8 +119,9 @@ fun Route.archivoRoutes() {
             ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
         val file = ArchivoService.getPdfFileByCodigo(comunidad.codigoAcceso, id)
         if (file != null) {
+            val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
             call.response.header("Content-Type", "application/pdf")
-            call.response.header("Content-Disposition", "inline; filename=\"${file.name}\"")
+            call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
             call.respondFile(file)
         } else {
             call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
@@ -152,8 +153,9 @@ fun Route.archivoRoutes() {
             ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
         val file = ArchivoService.getPdfFileByCodigo(session.codigoAcceso, id)
         if (file != null) {
+            val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
             call.response.header("Content-Type", "application/pdf")
-            call.response.header("Content-Disposition", "inline; filename=\"${file.name}\"")
+            call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
             call.respondFile(file)
         } else {
             call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))

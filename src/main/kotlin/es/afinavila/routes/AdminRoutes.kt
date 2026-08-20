@@ -155,8 +155,9 @@ fun Route.adminRoutes() {
             ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
         val file = ArchivoService.getPdfFileByCodigo(codigo, id)
             ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
+        val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
         call.response.header("Content-Type", "application/pdf")
-        call.response.header("Content-Disposition", "inline; filename=\"${file.name}\"")
+        call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
         call.respondFile(file)
     }
 }
