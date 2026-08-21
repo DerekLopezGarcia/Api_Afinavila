@@ -164,4 +164,26 @@ fun Route.adminRoutes() {
         call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
         call.respondFile(file)
     }
+
+    // Compatibility for older web bundles. It remains protected by the admin
+    // session; it is not a public PDF endpoint.
+    get("/admin/archivo/pdf/{codigoAcceso}/{id}") {
+        val token = call.request.cookies["afinavila_admin_token"]
+        if (token == null || !SessionManager.validateAdmin(token)) {
+            return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
+        }
+        val codigo = call.parameters["codigoAcceso"]
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
+        val id = call.parameters["id"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+        val comunidad = ComunidadService.findByClaveAcceso(codigo)
+            ?: ComunidadService.findByCodigoAcceso(codigo)
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
+        val file = ArchivoService.getPdfFileByCodigo(comunidad.codigoAcceso, id)
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
+        val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
+        call.response.header("Content-Type", "application/pdf")
+        call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
+        call.respondFile(file)
+    }
 }
