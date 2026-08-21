@@ -117,7 +117,10 @@ fun Route.archivoRoutes() {
             val clientSession = call.request.cookies["afinavila_token"]?.let(SessionManager::validate)
             val adminSession = call.request.cookies["afinavila_admin_token"]
                 ?.let(SessionManager::validateAdmin) == true
-            val authorizedCompatibility = adminSession || clientSession?.codigoAcceso == requestedCode
+            val requestedCommunity = ComunidadService.findByClaveAcceso(requestedCode)
+                ?: ComunidadService.findByCodigoAcceso(requestedCode)
+            val authorizedCompatibility = adminSession ||
+                (clientSession != null && requestedCommunity?.id == clientSession.comunidadId)
             if (!authorizedCompatibility) {
                 return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
             }
