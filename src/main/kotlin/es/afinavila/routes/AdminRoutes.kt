@@ -122,10 +122,17 @@ fun Route.adminRoutes() {
             return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
         }
 
-        val id = call.parameters["id"]?.toIntOrNull()
-            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
-        val comunidad = transaction {
-            ComunidadTable.select { ComunidadTable.id eq id }.firstOrNull()
+        val routeValue = call.parameters["id"]
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Identificador inválido"))
+        // Numeric IDs are canonical. The code fallback is temporary compatibility
+        // for already-open admin tabs/bookmarks and remains admin-authenticated.
+        val comunidad = routeValue.toIntOrNull()?.let { id ->
+            transaction { ComunidadTable.select { ComunidadTable.id eq id }.firstOrNull() }
+        } ?: transaction {
+            ComunidadTable.select {
+                (ComunidadTable.claveAcceso eq routeValue) or
+                    (ComunidadTable.codigoAcceso eq routeValue)
+            }.firstOrNull()
         } ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
 
         val archivos = ArchivoService.findByComunidad(comunidad[ComunidadTable.id].value)
