@@ -3,6 +3,9 @@ package es.afinavila.routes
 import es.afinavila.models.ArchivoTable
 import es.afinavila.models.ComunidadTable
 import es.afinavila.services.ArchivoService
+import es.afinavila.services.ComunidadService
+import es.afinavila.services.PasswordVerifier
+import es.afinavila.services.RequestSecurity
 import es.afinavila.services.LoginRateLimiter
 import es.afinavila.services.SessionManager
 import io.ktor.http.*
@@ -13,13 +16,15 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
-private val ADMIN_PASSWORD: String = System.getenv("ADMIN_PASSWORD")
-    ?: error("ADMIN_PASSWORD environment variable not set")
-
 fun Route.adminRoutes() {
+    val secureCookies = System.getenv("COOKIE_SECURE")?.toBooleanStrictOrNull() ?: true
+    val cookieExtensions = mapOf("SameSite" to "Strict")
     post("/admin/login") {
-        val ip = call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
-            ?: call.request.headers["X-Real-IP"]
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
+        val ip = call.request.headers["X-Real-IP"]?.trim()
+            ?: call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
             ?: call.request.local.remoteHost
 
         if (!LoginRateLimiter.tryAcquire(ip)) {
@@ -33,7 +38,7 @@ fun Route.adminRoutes() {
             ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Petición inválida"))
 
         val password = body["password"] ?: ""
-        if (password != ADMIN_PASSWORD) {
+        if (!PasswordVerifier.matches(password)) {
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Contraseña incorrecta"))
         }
 
@@ -44,13 +49,26 @@ fun Route.adminRoutes() {
                 name = "afinavila_admin_token",
                 value = token,
                 httpOnly = true,
-                secure = false,
+                secure = secureCookies,
                 path = "/",
-                maxAge = 3600
+                maxAge = 3600,
+                extensions = cookieExtensions
             )
         )
 
         call.respond(mapOf("status" to "ok", "role" to "admin"))
+    }
+
+    post("/admin/logout") {
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
+        call.request.cookies["afinavila_admin_token"]?.let(SessionManager::removeAdmin)
+        call.response.cookies.append(
+            Cookie("afinavila_admin_token", "", httpOnly = true, secure = secureCookies,
+                path = "/", maxAge = 0, extensions = cookieExtensions)
+        )
+        call.respond(mapOf("status" to "ok"))
     }
 
     get("/admin/me") {
@@ -98,26 +116,23 @@ fun Route.adminRoutes() {
         call.respond(comunidades)
     }
 
-    get("/admin/comunidad/{codigoAcceso}") {
+    get("/admin/comunidad/{id}") {
         val token = call.request.cookies["afinavila_admin_token"]
         if (token == null || !SessionManager.validateAdmin(token)) {
             return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
         }
 
-        val codigo = call.parameters["codigoAcceso"] ?: ""
-        if (codigo.isEmpty()) {
-            return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
-        }
-
-        val comunidad = transaction {
-            ComunidadTable.select { ComunidadTable.claveAcceso eq codigo }
-                .firstOrNull()
-        } ?: run {
-            // Fallback a codigoAcceso por compatibilidad
-            transaction {
-                ComunidadTable.select { ComunidadTable.codigoAcceso eq codigo }
-                    .firstOrNull()
-            }
+        val routeValue = call.parameters["id"]
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Identificador inválido"))
+        // Numeric IDs are canonical. The code fallback is temporary compatibility
+        // for already-open admin tabs/bookmarks and remains admin-authenticated.
+        val comunidad = routeValue.toIntOrNull()?.let { id ->
+            transaction { ComunidadTable.select { ComunidadTable.id eq id }.firstOrNull() }
+        } ?: transaction {
+            ComunidadTable.select {
+                (ComunidadTable.claveAcceso eq routeValue) or
+                    (ComunidadTable.codigoAcceso eq routeValue)
+            }.firstOrNull()
         } ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
 
         val archivos = ArchivoService.findByComunidad(comunidad[ComunidadTable.id].value)
@@ -129,5 +144,24 @@ fun Route.adminRoutes() {
             "codigoAcceso" to comunidad[ComunidadTable.codigoAcceso],
             "archivos" to archivos
         ))
+    }
+
+    get("/admin/comunidad/{comunidadId}/archivo/pdf/{id}") {
+        val token = call.request.cookies["afinavila_admin_token"]
+        if (token == null || !SessionManager.validateAdmin(token)) {
+            return@get call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "No autenticado"))
+        }
+        val comunidadId = call.parameters["comunidadId"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID de comunidad inválido"))
+        val id = call.parameters["id"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+        val comunidad = ComunidadService.findById(comunidadId)
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
+        val file = ArchivoService.getPdfFileByCodigo(comunidad.codigoAcceso, id)
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
+        val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
+        call.response.header("Content-Type", "application/pdf")
+        call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
+        call.respondFile(file)
     }
 }

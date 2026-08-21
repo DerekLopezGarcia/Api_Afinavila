@@ -10,13 +10,20 @@ import io.ktor.server.routing.*
 
 fun Route.archivoRoutes() {
 
+    val allowLegacyPublicAccess = System.getenv("ALLOW_LEGACY_PUBLIC_ACCESS")?.toBooleanStrictOrNull() == true
+    val secureCookies = System.getenv("COOKIE_SECURE")?.toBooleanStrictOrNull() ?: true
+    val cookieExtensions = mapOf("SameSite" to "Lax")
+
     get("/health") {
         call.respond(mapOf("status" to "ok"))
     }
 
     post("/auth/login") {
-        val ip = call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
-            ?: call.request.headers["X-Real-IP"]
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
+        val ip = call.request.headers["X-Real-IP"]?.trim()
+            ?: call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
             ?: call.request.local.remoteHost
 
         if (!LoginRateLimiter.tryAcquire(ip)) {
@@ -42,13 +49,29 @@ fun Route.archivoRoutes() {
                 name = "afinavila_token",
                 value = token,
                 httpOnly = true,
-                secure = false,
+                secure = secureCookies,
                 path = "/api/",
-                maxAge = 3600
+                maxAge = 3600,
+                extensions = cookieExtensions
             )
         )
 
-        call.respond(ComunidadResponse(comunidad.id, comunidad.nombre, "", "", ""))
+        call.respond(mapOf(
+            "id" to comunidad.id,
+            "nombre" to comunidad.nombre
+        ))
+    }
+
+    post("/auth/logout") {
+        if (!RequestSecurity.sameOrigin(call)) {
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Origen no permitido"))
+        }
+        call.request.cookies["afinavila_token"]?.let(SessionManager::remove)
+        call.response.cookies.append(
+            Cookie("afinavila_token", "", httpOnly = true, secure = secureCookies,
+                path = "/api/", maxAge = 0, extensions = cookieExtensions)
+        )
+        call.respond(mapOf("status" to "ok"))
     }
 
     get("/auth/me") {
@@ -62,6 +85,9 @@ fun Route.archivoRoutes() {
     }
 
     get("/comunidad/{codigoAcceso}") {
+        if (!allowLegacyPublicAccess) {
+            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+        }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         if (codigo.isEmpty() || !codigo.matches(Regex("^[a-zA-Z0-9]+$"))) {
             return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
@@ -72,6 +98,9 @@ fun Route.archivoRoutes() {
     }
 
     get("/archivos/{codigoAcceso}") {
+        if (!allowLegacyPublicAccess) {
+            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+        }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         if (codigo.isEmpty() || !codigo.matches(Regex("^[a-zA-Z0-9]+$"))) {
             return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código inválido"))
@@ -83,6 +112,9 @@ fun Route.archivoRoutes() {
     }
 
     get("/archivo/pdf/{codigoAcceso}/{id}") {
+        if (!allowLegacyPublicAccess) {
+            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+        }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         val id = call.parameters["id"]?.toIntOrNull()
             ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
@@ -93,8 +125,9 @@ fun Route.archivoRoutes() {
             ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Comunidad no encontrada"))
         val file = ArchivoService.getPdfFileByCodigo(comunidad.codigoAcceso, id)
         if (file != null) {
+            val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
             call.response.header("Content-Type", "application/pdf")
-            call.response.header("Content-Disposition", "inline; filename=\"${file.name}\"")
+            call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
             call.respondFile(file)
         } else {
             call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))
@@ -126,8 +159,9 @@ fun Route.archivoRoutes() {
             ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
         val file = ArchivoService.getPdfFileByCodigo(session.codigoAcceso, id)
         if (file != null) {
+            val safeDownloadName = file.name.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
             call.response.header("Content-Type", "application/pdf")
-            call.response.header("Content-Disposition", "inline; filename=\"${file.name}\"")
+            call.response.header("Content-Disposition", "inline; filename=\"$safeDownloadName\"")
             call.respondFile(file)
         } else {
             call.respond(HttpStatusCode.NotFound, mapOf("error" to "Archivo no encontrado"))

@@ -99,8 +99,10 @@ comunidades/
 | `PORT` | 8081 | Puerto HTTP |
 | `DB_PATH` | `data/afinavila.db` | Ruta del archivo SQLite |
 | `FILES_PATH` | `comunidades` | Ruta raíz de archivos de comunidades |
-| `JWT_SECRET` | `change-me` | Secreto para firmar tokens JWT |
-| `ADMIN_PASSWORD` | `admin` | Contraseña del admin |
+| `JWT_SECRET` | obligatorio si se usa JWT | Secreto para firmar tokens JWT |
+| `ADMIN_PASSWORD` | obligatorio | Contraseña del admin |
+| `COOKIE_SECURE` | `true` | Emite cookies solo por HTTPS |
+| `ALLOW_LEGACY_PUBLIC_ACCESS` | `false` | Desactiva rutas públicas antiguas |
 
 ## Ejecutar
 
