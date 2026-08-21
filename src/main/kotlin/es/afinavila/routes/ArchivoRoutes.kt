@@ -113,7 +113,14 @@ fun Route.archivoRoutes() {
 
     get("/archivo/pdf/{codigoAcceso}/{id}") {
         if (!allowLegacyPublicAccess) {
-            return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+            val requestedCode = call.parameters["codigoAcceso"] ?: ""
+            val clientSession = call.request.cookies["afinavila_token"]?.let(SessionManager::validate)
+            val adminSession = call.request.cookies["afinavila_admin_token"]
+                ?.let(SessionManager::validateAdmin) == true
+            val authorizedCompatibility = adminSession || clientSession?.codigoAcceso == requestedCode
+            if (!authorizedCompatibility) {
+                return@get call.respond(HttpStatusCode.Gone, mapOf("error" to "Endpoint retirado"))
+            }
         }
         val codigo = call.parameters["codigoAcceso"] ?: ""
         val id = call.parameters["id"]?.toIntOrNull()
